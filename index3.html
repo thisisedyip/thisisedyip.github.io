@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<style>
+body {
+  padding: 20px;
+}
+#header, #container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#menu {
+  margin-top: 500px;
+}
+
+svg {
+  font: 10px sans-serif;
+}
+
+.background path {
+  fill: none;
+  stroke: #ddd;
+  shape-rendering: crispEdges;
+}
+
+.foreground path {
+  fill: none;
+  stroke: steelblue;
+}
+
+.brush .extent {
+  fill-opacity: .3;
+  stroke: #fff;
+  shape-rendering: crispEdges;
+}
+
+.axis line,
+.axis path {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+  cursor: move;
+}
+
+#grid {
+  position: fixed;
+  /*padding-top: 400px !important;*/
+  width: 100%;
+}
+#grid {
+  bottom: 0;
+  height: 37%;
+}
+#pager {
+  bottom: 27%;
+  height: 20px;
+}
+.slick-row:hover {
+  font-weight: bold;
+  color: #069;
+}
+
+</style>
+<body>
+<link rel="stylesheet" href="lib/slickgrid/slick.grid.css" type="text/css"/>
+<link rel="stylesheet" href="lib/slickgrid/jquery-ui-1.8.16.custom.css" type="text/css"/>
+<link rel="stylesheet" href="lib/slickgrid/examples.css" type="text/css"/>
+<link rel="stylesheet" href="lib/slickgrid/slick.pager.css" type="text/css"/>
+<script src="lib/slickgrid/jquery-1.7.min.js"></script>
+<script src="lib/slickgrid/jquery.event.drag-2.0.min.js"></script>
+<script src="lib/slickgrid/slick.core.js"></script>
+<script src="lib/slickgrid/slick.grid.js"></script>
+<script src="lib/slickgrid/slick.pager.js"></script>
+<script src="lib/slickgrid/slick.dataview.js"></script>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="d3.parcoords.js"></script>
+<script src="sylvester.js"></script>
+<link rel="stylesheet" type="text/css" href="d3.parcoords.css">
+<div id="back"> <a href="index.html">Let's Navigate to Radar Charts</a></div>
+<div id="header"> <h2> World University Rankings - Parallel Chart</h2> </div>
+<div id="example" class="parcoords" style="height:20px"></div>
+<div id="menu"> <div id="grid"></div> </div>
+<div id="pager"></div>
+</div>
+<script id="brushing">
+
+// Code borrows heavily from these libraries:
+// 1. https://github.com/syntagmatic/parallel-coordinates - D3 based library to create parallel coordinate chart
+//    This library allows me to create a chart by just providing parameters to a class. Used significant parts from
+//    these examples - http://people.ischool.berkeley.edu/~dmenghani/wine-viz_bkp/
+// 2. https://github.com/mleibman/SlickGrid - for the grid display below
+
+var blue_to_brown = d3.scale.linear()
+  .domain([1, 200])
+  .range(["steelblue", "brown"])
+  //.interpolate(d3.interpolateLab);
+
+var parcoords = d3.parcoords()("#example")
+    .alpha(0.35)
+    .mode("queue") // progressive rendering
+    .rate(2)
+    //.hideAxis(["university_name"])
+    .height(d3.max([document.body.clientHeight-326, 440]))
+    .margin({
+      top: 36,
+      left: 100,
+      right: 0,
+      bottom: 16
+    });
+
+// load csv file and create the chart
+d3.csv('timesDataparallel.csv', function(data) {
+  // slickgrid needs each data element to have an id
+  data.forEach(function(d,i) { d.id = d.id || i; });
+
+  var colorgen = d3.scale.ordinal()
+    .range(["#a6cee3","#1f78b4","#b2df8a","#33a02c",
+            "#fb9a99","#e31a1c","#fdbf6f","#ff7f00",
+            "#cab2d6","#6a3d9a","#ffff99","#b15928"]);
+
+  var color = function(d) {
+    console.log(d)
+    return colorgen(d.group); };
+
+  parcoords
+    .data(data)
+    //.hideAxis(["country"])
+    .hideAxis(["University", "Year", "id"])
+    .color(function(d) {
+    return blue_to_brown(d['Rank']); })
+    .render()
+    .reorderable()
+    .brushMode("1D-axes");
+
+  parcoords.animationTime(milliseconds = 3100)
+  .smoothness(.15);
+  parcoords
+  .alphaOnBrushed(0.15)
+  //.brushedColor("#000");
+
+  var column_keys = d3.keys(data[0]);
+  var columns = column_keys.map(function(key,i) {
+    return {
+      id: key,
+      name: key,
+      field: key,
+      sortable: true
+    }
+  });
+
+  var options = {
+    enableCellNavigation: true,
+    enableColumnReorder: false,
+    multiColumnSort: false
+  };
+
+  var dataView = new Slick.Data.DataView();
+  var grid = new Slick.Grid("#grid", data, columns, options);
+  //var pager = new Slick.Controls.Pager(dataView, grid, $("#pager"));
+
+  // wire up model events to drive the grid
+  dataView.onRowCountChanged.subscribe(function (e, args) {
+    grid.updateRowCount();
+    grid.invalidate(args.rows);
+    grid.render();
+  });
+
+  dataView.onRowsChanged.subscribe(function (e, args) {
+    grid.invalidateRows(args.rows);
+    grid.invalidate();
+    grid.render();
+  });
+
+  // column sorting
+  var sortcol = column_keys[0];
+  var sortdir = 1;
+
+  function comparer(a, b) {
+    var x = a[sortcol], y = b[sortcol];
+    return (x == y ? 0 : (x > y ? 1 : -1));
+  }
+
+  // click header to sort grid column
+  grid.onSort.subscribe(function (e, args) {
+    sortdir = args.sortAsc ? 1 : -1;
+    sortcol = args.sortCol.field;
+
+    if ($.browser.msie && $.browser.version <= 8) {
+      dataView.fastSort(sortcol, args.sortAsc);
+    } else {
+      dataView.sort(comparer, args.sortAsc);
+    }
+  });
+
+  // highlight row in chart
+  grid.onMouseEnter.subscribe(function(e,args) {
+    var i = grid.getCellFromEvent(e).row;
+    var d = parcoords.brushed() || data;
+    parcoords.highlight([d[i]]);
+  });
+  grid.onMouseLeave.subscribe(function(e,args) {
+    parcoords.unhighlight();
+  });
+
+  // fill grid with data
+  gridUpdate(data);
+
+  // update grid on brush
+  parcoords.on("brush", function(d) {
+    //console.log(d)
+    gridUpdate(d);
+  });
+
+  $("#txtSearch").keyup(function (e) {
+    var univName = $("#txtSearch").val();
+
+    newData = []
+
+    for (i = 0; i < data.length; i++) {
+      if (i == 0) {
+        continue;
+      }
+      var t = data[i]['university_name']
+      if (t == univName) {
+        newData.push(data[i])
+      }
+    }
+
+    if (newData.length > 0) {
+      newData.forEach(function(d,i) { d.id = d.id || i; });
+      gridUpdate(newData);
+      dataView.refresh();
+    } else {
+      gridUpdate(data);
+    }
+
+  });
+
+  function gridUpdate(data1) {
+    //dataView.getItems().length = 0;
+    //console.log(data1[0])
+    /*for (count = 0; count < 602; count ++) {
+      try {
+        dataView.deleteItem(count.toString());
+      } catch (e) {
+
+      }
+    }
+    //dataView.setItems(data1);
+    for (i = 0; i < data1.length; i++) {
+      dataView.addItem(data1[i])
+    }
+
+    grid.updateRowCount()
+    grid.render()
+    for (count = 0; count < 602; count ++) {
+      try {
+        grid.invalidateRows(count)
+        grid.render()
+      } catch (e) {
+
+      }
+    }
+    dataView.endUpdate();*/
+    //  grid.invalidate();
+    dataView.beginUpdate();
+    dataView.setItems(data1);
+    dataView.refresh();
+    dataView.endUpdate();
+
+
+    /*dataView.refresh();
+
+    for (var i = 0; i < data1.length; i++) {
+      grid.updateRow(i);
+    }*/
+  };
+
+  //syncGridSelection(grid, preserveHidden)
+
+});
+</script>
+
+</body>
+</html>

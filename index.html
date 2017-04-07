@@ -1,28 +1,231 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<title>Hank Quinlan, Horrible Cop</title>
-	</head>
-	<body>
-		<nav>
-    		<ul>
-        		<li><a href="/">Home</a></li>
-	        	<li><a href="/about">About</a></li>
-        		<li><a href="/cv">CV</a></li>
-        		<li><a href="/blog">Blog</a></li>
-    		</ul>
-		</nav>
-		<div class="container">
-    		<div class="blurb">
-        		<h1>Hi there, I'm Hank Quinlan!</h1>
-				<p>I'm best known as the horrible cop from <em>A Touch of Evil</em> Don't trust me. <a href="/about">Read more about my life...</a></p>
-    		</div><!-- /.blurb -->
-		</div><!-- /.container -->
-		<footer>
-    		<ul>
-        		<li><a href="mailto:hankquinlanhub@gmail.com">email</a></li>
-        		<li><a href="https://github.com/hankquinlan">github.com/hankquinlan</a></li>
-			</ul>
-		</footer>
-	</body>
+<meta charset="utf-8">
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css">
+<link rel="stylesheet" href="https://rawgit.com/tpreusse/radar-chart-d3/master/src/radar-chart.css">
+<!-- <link rel="stylesheet" href="../src/radar-chart.css"> -->
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chosen/1.4.2/chosen.css">
+
+<head>
+  <style>
+    body {
+      padding: 20px;
+    }
+    #header, #container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #radar {
+      margin-top: 25px;
+    }
+    #back {
+      align-items: center;
+      justify-content: center;
+    }
+    .radar-chart .area {
+      fill-opacity: 0.0;
+    }
+    .radar-chart.focus .area {
+      fill-opacity: 0.3;
+    }
+    .radar-chart.focus .area.focused {
+      fill-opacity: 0.9;
+    }
+    .area.statechange1, .statechange1 .circle {
+      fill: #DC143C;
+      stroke: none;
+    }
+    .area.statechange2, .statechange2 .circle {
+      fill: #00008B;
+      stroke: none;
+    }
+
+  </style>
+
+  <body>
+
+  <script type="text/javascript" src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://rawgit.com/alangrafu/radar-chart-d3/master/src/radar-chart.min.js"></script>
+  <script src="https://code.jquery.com/jquery-1.12.3.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/chosen/1.1.0/chosen.min.css">
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/chosen/1.1.0/chosen.jquery.min.js"></script>
+
+  <title>World University Rankings Visualization</title>
+  <div id="header"> <h2> Visualization on World University Rankings</h2> </div>
+  <div id="header"> <h3> by Avi Dixit and Edward Yip </h3> </div>
+  <p> Here, we show two different ways to visualize information via Radar Charts and Parallel Charts.
+    We've taken a dataset containing ranking and scores of different universities and have visualized
+    them here.  <br><br>
+    What you see here is the Radar Chart.  We chose to only allow comparisons between
+    two universities across a single year (2011) to ensure that user was able to easily navigate through
+    and understand what he/she was looking at and comparing. <br><br>
+    Use the dropdown menus to select different universities to compare using the Radar Chart <br> <br>
+    To view Parallel Charts, please click on the hyperlink.
+  </p>
+  <div id="header"> <h2> Radar Chart - 2011 World University Rankings</h2> </div>
+
+
+  <div id="container" style="width: 100%; height: 50%;">
+    <div id="radar" style="width: 50%; height: 50%; float: left;">
+      <div id="chart" style="width: 50%; height: 50%;"></span>
+    </div>
+      <div id="legend" style="margin-left: 100px; clear: left"></div>
+  </div>
+
+
+  <script type="text/javascript">
+  RadarChart.defaultConfig.radius = 3;
+  RadarChart.defaultConfig.w = 500;
+  RadarChart.defaultConfig.h = 500;
+  RadarChart.defaultConfig.tooltipColor = "white";
+  RadarChart.defaultConfig.backgroundTooltipOpacity = "0.7";
+    var data = [
+    ];
+
+    // Dropdown university menu (https://bl.ocks.org/mbostock/5872848)
+    var dispatch = d3.dispatch("load", "statechange1", "statechange2");
+    d3.csv("timesData.csv", function(error, univs) {
+      if (error) throw error;
+      var univById = d3.map();
+      univs.forEach(function(d) { univById.set(d.Name, d); });
+      dispatch.load(univById);
+      dispatch.statechange1(univById.get("Harvard University"));
+      dispatch.statechange2(univById.get("California Institute of Technology"));
+    });
+
+    dispatch.on("load.menu", function(univById) {
+      // University 1 legend box
+      d3.select("#legend")
+        .append("br")
+        .attr("style", "clear:both");
+      var legend1 = d3.select("#legend")
+        .append("div")
+          .attr("style", "float: left; height: 50px; width: 40px;")
+          .append("svg")
+            .attr("width", 30)
+            .attr("height", 30)
+            .append("rect")
+              .attr("width", 30)
+              .attr("height", 30)
+              .attr("fill", "#1F77B4")
+              .attr("id", "legend1")
+
+        //User selecting university 1
+        var select1 = d3.select("#legend")
+          .append("div")
+            .attr("style", "float: left; height: 50px;")
+            .append("select")
+              .attr("id", "select1")
+              .on("change", function() { dispatch.statechange1(univById.get(this.value)); });
+        select1.selectAll("option")
+          .data(univById.values())
+          .enter()
+            .append("option")
+              .attr("value", function(d) { return d.Name; })
+              .text(function(d) { return d.world_rank + ". " + d.Name; });
+
+      // Line break between selection boxes
+      d3.select("#legend")
+        .append("br")
+          .attr("style", "clear:both");
+
+      // University 2 selection box
+      var legend2 = d3.select("#legend")
+        .append("div")
+          .attr("style", "float: left; height: 50px; width: 40px;")
+          .append("svg")
+            .attr("width", 30)
+            .attr("height", 30)
+            .append("rect")
+              .attr("width", 30)
+              .attr("height", 30)
+              .attr("fill", "#FF7F0E")
+              .attr("id", "legend2")
+
+
+      //User selecting university 2
+      var select2 = d3.select("#legend")
+        .append("div")
+          .attr("style", "float: left; height: 50px;")
+          .append("select")
+            .attr("id", "select2")
+            .classed("chzn-select", true)
+            .on("change", function() { dispatch.statechange2(univById.get(this.value)); });
+      select2.selectAll("option")
+        .data(univById.values())
+        .enter()
+        .append("option")
+          .attr("value", function(d) { return d.Name; })
+          .text(function(d) { return d.world_rank + ". " + d.Name; });
+
+        // Enabling search capability from dropdown menu items
+        // http://harvesthq.github.io/chosen/
+        $("#select1").chosen().change(function() {
+          dispatch.statechange1(univById.get(this.value));
+        });
+
+        $("#select1").val("Harvard University").trigger('chosen:updated');
+
+        $("#select2").chosen().change(function() {
+          dispatch.statechange2(univById.get(this.value));
+        });
+
+        $("#select2").val("California Institute of Technology").trigger('chosen:updated');
+
+        // University 1 state change
+        dispatch.on("statechange1.menu", function(univ) {
+          select1.property("value", univ.Name);
+
+          // Update the dataset according to selected university
+          data[0] = {
+            className: univ.world_rank + ". " + univ.Name,
+            axes: [
+              {axis: "Teaching", value: univ.teaching},
+              {axis: "International", value: univ.international},
+              {axis: "Research", value: univ.research},
+              {axis: "Citations", value: univ.citations},
+              {axis: "Income", value: univ.income}
+            ]
+          };
+        });
+
+        // University 2 state change
+        dispatch.on("statechange2.menu", function(univ) {
+          select2.property("value", univ.Name);
+
+          // Update the dataset according to selected university
+          data[1] = {
+            className: univ.world_rank + ". " + univ.Name,
+            axes: [
+              {axis: "Teaching", value: univ.teaching},
+              {axis: "International", value: univ.international},
+              {axis: "Research", value: univ.research},
+              {axis: "Citations", value: univ.citations},
+              {axis: "Income", value: univ.income}
+            ]
+          };
+        });
+      });
+  </script>
+</head>
+  <script type="text/javascript">
+  // Loading the radar chart
+  dispatch.on("load.radar", function(univById) {
+    var chart = RadarChart.chart();
+    var cfg = chart.config(); // retrieve default config
+
+    // Update the chart with new data when there's a state change
+    dispatch.on("statechange1.radar", function(d) {
+      RadarChart.draw("#chart", data);
+    });
+    dispatch.on("statechange2.radar", function(d) {
+      RadarChart.draw("#chart", data);
+    });
+  });
+
+  </script>
+  <div id="back"> <a href="index3.html">Let's Navigate to Parallel Charts</a></div>
+</body>
 </html>
